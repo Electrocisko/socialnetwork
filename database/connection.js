@@ -1,4 +1,5 @@
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const connectionString = "mongodb://localhost:27017/social-zuchi";
 
@@ -12,4 +13,5 @@ const connection = async () => {
         }
 }
 
-module.exports = connection;
+// module.exports = connection;
+export default connection;
