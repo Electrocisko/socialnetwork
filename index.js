@@ -1,6 +1,6 @@
 const connection = require ("./database/connection.js");
 const express = require("express");
-const cors = require("cors")
+const cors = require("cors");
 
 //Mensaje de bienvenida
 console.log("API NODE JS");
@@ -25,6 +25,7 @@ app.use('/',(req,res) => {
         "web": "electrocisko.com.ar"
     })
 });
+
 
 // hacer escuchar el servidor
 const server = app.listen(PORT, () => {
