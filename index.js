@@ -1,6 +1,11 @@
 const connection = require ("./database/connection.js");
 const express = require("express");
 const cors = require("cors");
+const userRoutes = require('./routes/user.js');
+const publicationRoutes = require('./routes/publication.js');
+const followRoutes = require('./routes/follow.js');
+
+
 
 //Mensaje de bienvenida
 console.log("API NODE JS");
@@ -17,6 +22,11 @@ app.use(cors());
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 
+//Cargar rutas  
+app.use('/api',userRoutes );
+app.use('/api',  publicationRoutes);
+app.use('/api', followRoutes);
+
 // ruta de prueba 
 app.use('/',(req,res) => {
     return res.status(200).json({
@@ -25,6 +35,10 @@ app.use('/',(req,res) => {
         "web": "electrocisko.com.ar"
     })
 });
+
+
+
+
 
 
 // hacer escuchar el servidor
