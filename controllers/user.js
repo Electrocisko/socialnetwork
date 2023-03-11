@@ -1,5 +1,8 @@
 const User = require("../models/user.js");
 const bcrypt = require("bcrypt");
+const createToken = require('../services/jwt.js');
+
+
 
 // Acciones de prueba
 const pruebaUser = (req, res) => {
@@ -62,8 +65,62 @@ const register = (req, res) => {
   });
 };
 
+// Login de usuario
+const login = async (req, res) => {
+  // Recoger parametros del body
+  const params = req.body;
+
+  if (!params.email || !params.password) {
+    return res.status(400).json({
+      status: "error",
+      message: "Datos incompletos",
+    });
+  }
+  // buscar en la base de datos si existe
+  try {
+    let user = await User.findOne({ email: params.email });
+    if (!user) {
+      return res.status(400).json({
+        status: "error",
+        message: "Usuario no registrado",
+      });
+    }
+    //Comprobar su constraseña
+    let pass = bcrypt.compareSync(params.password, user.password);
+    if (!pass) {
+      return res.status(400).json({
+        status: "error",
+        message: "Password incorrecto",
+      });
+    }
+    // Devolver Token
+    const token = createToken(user);
+
+
+
+    return res.status(200).json({
+      status: "success",
+      message: "Usuario logeado",
+      user: {
+        id: user._id,
+        name: user.name,
+        nick: user.nick,
+        email: user.email
+      },
+      token
+    });
+  } catch (error) {
+    console.log(error)
+    return res.status(400).json({
+      status: "error",
+      message: "Error al leer base de datos Login",
+    });
+  }
+};
+
 // Exportar acciones
 module.exports = {
   pruebaUser,
   register,
+  login,
 };
