@@ -1,13 +1,16 @@
 const User = require("../models/user.js");
 const bcrypt = require("bcrypt");
-const createToken = require('../services/jwt.js');
+const {createToken }= require('../services/jwt.js');
+const mongoosePaginate = require("mongoose-pagination");
 
 
 
 // Acciones de prueba
 const pruebaUser = (req, res) => {
+  let user = req.user;
   return res.status(200).send({
     message: "Mensaje enviado desde controlador controllers/user.js",
+    user
   });
 };
 
@@ -118,9 +121,63 @@ const login = async (req, res) => {
   }
 };
 
+const profile = async (req,res) => {
+  try {
+    let id = req.params.id;
+    let profile = await User.findById(id).select({password:0, role: 0});
+    return res.status(200).json({
+      status: 'success',
+      message: "Datos de Usuario",
+      user: profile
+    });
+  } catch (error) {
+    console.log(error)
+    return res.status(400).json({
+      status: "error",
+      message: "Error o Usuario Inexsistente",
+    });
+  }
+
+
+
+
+}     
+
+const list = async (req,res) => {
+  let page = 1;
+  if (req.params.page && parseInt(req.params.page)) {
+    page = parseInt(req.params.page) ;
+  }
+  //Consulta con mongoose pagination
+  let ItemPerPage = 1;  
+
+  User.find().sort('_id').paginate(page,ItemPerPage, (error, users, total) => {
+
+    if(error || !users) {
+      return res.status(400).json({
+        status: "error",
+        message: "Error en consulta- no hay usuarios disponibles",
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: "Datos de listado de Usuario",
+      page,
+      ItemPerPage,
+      users,
+      total,
+      pages: false
+    });
+  })
+}
+
+
 // Exportar acciones
 module.exports = {
   pruebaUser,
   register,
   login,
+  profile,
+  list
 };
