@@ -10,5 +10,6 @@ router.post('/register',userController.register);
 router.post('/login', userController.login);
 router.get('/profile/:id', middlewar.auth, userController.profile);
 router.get('/list/:page?', middlewar.auth, userController.list);
+router.put('/update', middlewar.auth, userController.update);
 
 module.exports = router;

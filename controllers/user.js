@@ -172,6 +172,12 @@ const list = async (req,res) => {
   })
 }
 
+const update = async (req,res) => {
+  res.status(200).json({
+    status: "succes",
+    message: "Update Data User"
+  })
+}
 
 // Exportar acciones
 module.exports = {
@@ -179,5 +185,6 @@ module.exports = {
   register,
   login,
   profile,
-  list
+  list,
+  update
 };
