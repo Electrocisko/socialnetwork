@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const {createToken }= require('../services/jwt.js');
 const mongoosePaginate = require("mongoose-pagination");
 const fs = require('fs');
+const path = require('path');
 
 
 
@@ -270,6 +271,28 @@ res.status(200).json({
   }
 }
 
+
+const avatar = async (req,res) => {
+  const file = req.params.file;
+// Montar el path real de la imagen
+  const filePath = "./uploads/avatars/"+file;
+//Comprobar que existe con el metodo stat de file system fs.
+fs.stat(filePath, (error,exist) => {
+  if (!exist) { return res.status(404).json({
+    status: "error",
+    message: "Imagen no encontrada",
+    filePath,
+    exist
+  })
+  }
+  //Devolver un file
+  return res.sendFile(path.resolve(filePath));
+  
+} );
+
+
+}
+
 // Exportar acciones
 module.exports = {
   pruebaUser,
@@ -278,5 +301,6 @@ module.exports = {
   profile,
   list,
   update,
-  uploader
+  uploader,
+  avatar
 };
