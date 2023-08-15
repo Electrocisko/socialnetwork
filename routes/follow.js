@@ -7,5 +7,8 @@ const check = require('../middlewars/auth.js');
 router.get('/prueba-follow', followControler.pruebaFollow);
 router.post('/save',  check.auth,followControler.saveFollow );
 router.delete('/delete/:id',  check.auth,followControler.deleteFollow );
+router.get('/following/:id?/:page?', check.auth,followControler.following);
+router.get('/followers/:id?/:page?', check.auth,followControler.followers);
+
 
 module.exports = router;
