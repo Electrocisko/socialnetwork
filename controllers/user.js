@@ -1,18 +1,16 @@
 const User = require("../models/user.js");
 const bcrypt = require("bcrypt");
-const {createToken }= require('../services/jwt.js');
-const mongoosePaginate = require("mongoose-pagination");
-const fs = require('fs');
-const path = require('path');
-
-
+const { createToken } = require("../services/jwt.js");
+const fs = require("fs");
+const path = require("path");
+const followService = require("../services/followService.js");
 
 // Acciones de prueba
 const pruebaUser = (req, res) => {
   let user = req.user;
   return res.status(200).send({
     message: "Mensaje enviado desde controlador controllers/user.js",
-    user
+    user,
   });
 };
 
@@ -101,8 +99,6 @@ const login = async (req, res) => {
     // Devolver Token
     const token = createToken(user);
 
-
-
     return res.status(200).json({
       status: "success",
       message: "Usuario logeado",
@@ -110,12 +106,12 @@ const login = async (req, res) => {
         id: user._id,
         name: user.name,
         nick: user.nick,
-        email: user.email
+        email: user.email,
       },
-      token
+      token,
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return res.status(400).json({
       status: "error",
       message: "Error al leer base de datos Login",
@@ -123,62 +119,67 @@ const login = async (req, res) => {
   }
 };
 
-const profile = async (req,res) => {
+const profile = async (req, res) => {
   try {
     let id = req.params.id;
-    let profile = await User.findById(id).select({password:0, role: 0});
+    let profile = await User.findById(id).select({ password: 0, role: 0 });
+
+    //info de seguimiento
+    const followInfo = await followService.followThisUser(req.user.id, id)
+
     return res.status(200).json({
-      status: 'success',
-      message: "Datos de Usuario",
-      user: profile
+      status: "success",
+      user: profile,
+      followwing: followInfo.following,
+      follower: followInfo.follower
+      //////////////////////////////
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return res.status(400).json({
       status: "error",
       message: "Error o Usuario Inexsistente",
     });
   }
+};
 
-
-
-
-}     
-
-const list = async (req,res) => {
+const list = async (req, res) => {
   let page = 1;
   if (req.params.page && parseInt(req.params.page)) {
-    page = parseInt(req.params.page) ;
+    page = parseInt(req.params.page);
   }
   //Consulta con mongoose pagination
-  let ItemPerPage = 1;  
+  let ItemPerPage = 5;
 
-  User.find().sort('_id').paginate(page,ItemPerPage, (error, users, total) => {
+  User.find()
+    .sort("_id")
+    .paginate(page, ItemPerPage, (error, users, total) => {
+      if (error || !users) {
+        return res.status(400).json({
+          status: "error",
+          message: "Error en consulta- no hay usuarios disponibles",
+        });
+      }
 
-    if(error || !users) {
-      return res.status(400).json({
-        status: "error",
-        message: "Error en consulta- no hay usuarios disponibles",
+      let pages = Math.ceil(total/ItemPerPage);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Datos de listado de Usuario",
+        page,
+        ItemPerPage,
+        users,
+        total,
+        pages
       });
-    }
-
-    return res.status(200).json({
-      status: 'success',
-      message: "Datos de listado de Usuario",
-      page,
-      ItemPerPage,
-      users,
-      total,
-      pages: false
     });
-  })
-}
+};
 
-const update = async (req,res) => {
-// Trae la informacion del usuario a actualizar
+const update = async (req, res) => {
+  // Trae la informacion del usuario a actualizar
   let userIdentity = req.user; //Datos viejos del Token
   let userToUpdate = req.body; //Datos del request
-  if (!userToUpdate.email || !userToUpdate.nick ) {
+  if (!userToUpdate.email || !userToUpdate.nick) {
     return res.status(400).json({
       status: "error",
       message: "Error en registro- faltan datos",
@@ -190,108 +191,112 @@ const update = async (req,res) => {
   delete userToUpdate.exp;
   delete userToUpdate.role;
   delete userToUpdate.image;
-  
+
   //Comprobar si el usuario ya existe
 
   try {
     let users = await User.find({
-      $or:[
-        {email: userToUpdate.email.toLowerCase()},
-        {nick: userToUpdate.nick.toLowerCase()}
-      ]
-    })
-  
-    let userIsset = false;
-    users.forEach(user => {
-      if(user && user._id != userIdentity.id) userIsset=true;
+      $or: [
+        { email: userToUpdate.email.toLowerCase() },
+        { nick: userToUpdate.nick.toLowerCase() },
+      ],
     });
 
-    if(userIsset) {
-       return res.status(200).json({
+    let userIsset = false;
+    users.forEach((user) => {
+      if (user && user._id != userIdentity.id) userIsset = true;
+    });
+
+    if (userIsset) {
+      return res.status(200).json({
         status: "success",
-        message: "El usuario ya existe"
-      })
+        message: "El usuario ya existe",
+      });
     }
     //Cifrar la contraseña
-    if(userToUpdate.password) {
+    if (userToUpdate.password) {
       let pwd = await bcrypt.hash(userToUpdate.password, 10);
       userToUpdate.password = pwd;
     }
     // Actualizar Base
-    let userUpdate =  await User.findByIdAndUpdate(userIdentity.id, userToUpdate, {new: true});
+    let userUpdate = await User.findByIdAndUpdate(
+      userIdentity.id,
+      userToUpdate,
+      { new: true }
+    );
 
     res.status(200).json({
       status: "succes",
       message: "Update Data User",
-      userUpdate
-    })
+      userUpdate,
+    });
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Error in update"
-    })
+      message: "Error in update",
+    });
   }
+};
 
-}
-
-const uploader = async (req,res) => {
+const uploader = async (req, res) => {
   try {
     //Recoger ficheroy ver si existe
-  if(!req.file) {
-    return res.status(404).json({
-      status: "error",
-      message: "Peticion no incluye la imagen"
+    if (!req.file) {
+      return res.status(404).json({
+        status: "error",
+        message: "Peticion no incluye la imagen",
+      });
+    }
+    let image = req.file.originalname;
+    // Hce validacion del archivo y si no es valido lo borra
+    const imageSplit = image.split(".");
+    const extension = imageSplit[1];
+    if (extension != "png" && extension != "jpg" && extension != "gif") {
+      const filePath = req.file.path;
+      const fileDeleted = fs.unlinkSync(filePath);
+      return res.status(400).json({
+        status: "error",
+        message: "Extensión del fichero invalido",
+      });
+    }
+
+    let userUpdated = await User.findByIdAndUpdate(
+      req.user.id,
+      { image: req.file.filename },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: "success",
+      user: userUpdated,
+      file: req.file,
     });
-}
-let image = req.file.originalname;
-// Hce validacion del archivo y si no es valido lo borra
-const imageSplit = image.split("\.");
-const extension = imageSplit[1];
-if (extension !="png" && extension !="jpg" && extension !="gif" ) {
-const filePath = req.file.path;
-const fileDeleted = fs.unlinkSync(filePath);
-return res.status(400).json({
-   status: "error",
-   message: "Extensión del fichero invalido"
-})
-}
-
-let userUpdated = await User.findByIdAndUpdate(req.user.id, {image: req.file.filename},{new: true});
-
-res.status(200).json({
-  status: "success",
-  user: userUpdated,
-  file: req.file
-})
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Error en upload imagen"
-    })
+      message: "Error en upload imagen",
+    });
   }
-}
+};
 
-
-const avatar = async (req,res) => {
+const avatar = async (req, res) => {
   const file = req.params.file;
-// Montar el path real de la imagen
-  const filePath = "./uploads/avatars/"+file;
-//Comprobar que existe con el metodo stat de file system fs.
-fs.stat(filePath, (error,exist) => {
-  if (!exist) { return res.status(404).json({
-    status: "error",
-    message: "Imagen no encontrada",
-    filePath,
-    exist
-  })
-  }
-  //Devolver un file
-  return res.sendFile(path.resolve(filePath));
-  
-} );
-
-
-}
+  // Montar el path real de la imagen
+  const filePath = "./uploads/avatars/" + file;
+  //Comprobar que existe con el metodo stat de file system fs.
+  fs.stat(filePath, (error, exist) => {
+    if (!exist) {
+      return res.status(404).json({
+        status: "error",
+        message: "Imagen no encontrada",
+        filePath,
+        exist,
+      });
+    }
+    //Devolver un file
+    return res.sendFile(path.resolve(filePath));
+  });
+};
 
 // Exportar acciones
 module.exports = {
@@ -302,5 +307,5 @@ module.exports = {
   list,
   update,
   uploader,
-  avatar
+  avatar,
 };
