@@ -105,15 +105,31 @@ const following = async (req, res) => {
 };
 
 // Accion listado de usuarios que  me siguen
-
 const followers = async (req, res) => {
+  //Saco el id del usuario identificado
+// compruebo el id que me llega por params
+let userId = req.params.id ? req.params.id : req.user.id;
+let page = 1;
+const ITEMS_PER_PAGE = 5;
 
 
+Follow.find({followed: userId})
+  .populate("user", "-password -role -__v")
+  .paginate(page,ITEMS_PER_PAGE, async (error, follows, total) => {
+    let followUserIds = await followService.followUserIds(req.user.id);
+    let pages = Math.ceil(total/ITEMS_PER_PAGE);
+    return res.status(200).json({
+      status: "succes",
+      message: "Sevuelvo el listado de seguidores que me siguen",
+      follows,
+      total,
+      pages,
+      user_following: followUserIds.followingList,
+      user_follow_me: followUserIds.followersList
+    });
+  })
 
-  return res.status(200).json({
-    status: "succes",
-    message: "Aca devuelvo el listado de seguidores que me siguen",
-  });
+  
 };
 
 // Exportar acciones
