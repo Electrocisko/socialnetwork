@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 //Cargar rutas  
 app.use('/api/user',userRoutes );
-app.use('/api/publiction',  publicationRoutes);
+app.use('/api/publication',  publicationRoutes);
 app.use('/api/follow', followRoutes);
 
 // ruta de prueba 
