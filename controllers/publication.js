@@ -1,5 +1,7 @@
 const Publication = require("../models/publication.js");
 const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
 
 // Acciones de prueba
 const pruebaPublication = (req, res) => {
@@ -146,7 +148,7 @@ const uploader = async (req, res) => {
       });
     }
     let image = req.file.originalname;
-    // Hce validacion del archivo y si no es valido lo borra
+    // Hace validacion del archivo y si no es valido lo borra
     const imageSplit = image.split(".");
     const extension = imageSplit[1];
     if (extension != "png" && extension != "jpg" && extension != "gif") {
@@ -178,6 +180,25 @@ const uploader = async (req, res) => {
 };
 
 // Devolver multimedia
+const media = async (req, res) => {
+  const file = req.params.file;
+  // Montar el path real de la imagen
+  const filePath = "./uploads/publications/" + file;
+  //Comprobar que existe con el metodo stat de file system fs.
+  fs.stat(filePath, (error, exist) => {
+    if (!exist) {
+      return res.status(404).json({
+        status: "error",
+        message: "Imagen no encontrada",
+        filePath,
+        exist,
+      });
+    }
+    //Devolver un file
+    return res.sendFile(path.resolve(filePath));
+  });
+};
+
 
 // Exportar acciones
 module.exports = {
@@ -186,5 +207,6 @@ module.exports = {
   detail,
   remove,
   user,
-  uploader
+  uploader,
+  media
 };

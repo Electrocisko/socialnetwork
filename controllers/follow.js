@@ -1,5 +1,4 @@
 const Follow = require("../models/follow.js");
-const User = require("../models/user.js");
 
 //Importar servicios
 const followService = require("../services/followService.js")
