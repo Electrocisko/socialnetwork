@@ -26,7 +26,7 @@ const followUserIds = async (identityUserId) => {
       followingList,
     };
   } catch (error) {
-    return {};
+    return {status: "error"};
   }
 };
 
@@ -40,7 +40,7 @@ const followThisUser = async (identityUserId, profileUserId) => {
       follower
     }
   } catch (error) {
-    return {}
+    return {status: "error"}
   }
 };
 

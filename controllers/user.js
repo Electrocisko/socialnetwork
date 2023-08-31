@@ -152,6 +152,7 @@ const list = async (req, res) => {
   let ItemPerPage = 5;
 
   User.find()
+    .select("-password -email -__v -rol")
     .sort("_id")
     .paginate(page, ItemPerPage,async (error, users, total) => {
       if (error || !users) {

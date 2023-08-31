@@ -1,11 +1,10 @@
 const Follow = require("../models/follow.js");
 
 //Importar servicios
-const followService = require("../services/followService.js")
+const followService = require("../services/followService.js");
 
 //importar dependencias
 const mongoosePaginate = require("mongoose-pagination");
-
 
 // Acciones de prueba
 const pruebaFollow = (req, res) => {
@@ -86,11 +85,17 @@ const following = async (req, res) => {
 
   // Find a follow , popular datos de los usuarios y paginar con mongose pagination
   Follow.find({ user: userId })
-    .populate("user followed", "-password -role -__v")
+    .populate("user followed", "-password -role -__v -email")
     .paginate(page, itemsPerPage, async (error, follows, total) => {
-
-    //sacar un array de ids de los usuarios que me siguen y los que sigo
-    let followUserIds = await followService.followUserIds(req.user.id)
+      //sacar un array de ids de los usuarios que me siguen y los que sigo
+      let followUserIds = await followService.followUserIds(req.user.id);
+      if (error || !publications) {
+        return res.status(400).json({
+          status: "error",
+          message: "No se ha podido obtener Feeds",
+          error: error,
+        });
+      }
 
       return res.status(200).json({
         status: "success",
@@ -98,7 +103,7 @@ const following = async (req, res) => {
         total,
         pages: Math.ceil(total / itemsPerPage),
         user_following: followUserIds.followingList,
-        user_follow_me: followUserIds.followersList
+        user_follow_me: followUserIds.followersList,
       });
     });
 };
@@ -106,29 +111,33 @@ const following = async (req, res) => {
 // Accion listado de usuarios que  me siguen
 const followers = async (req, res) => {
   //Saco el id del usuario identificado
-// compruebo el id que me llega por params
-let userId = req.params.id ? req.params.id : req.user.id;
-let page = 1;
-const ITEMS_PER_PAGE = 5;
+  // compruebo el id que me llega por params
+  let userId = req.params.id ? req.params.id : req.user.id;
+  let page = 1;
+  const ITEMS_PER_PAGE = 5;
 
-
-Follow.find({followed: userId})
-  .populate("user", "-password -role -__v")
-  .paginate(page,ITEMS_PER_PAGE, async (error, follows, total) => {
-    let followUserIds = await followService.followUserIds(req.user.id);
-    let pages = Math.ceil(total/ITEMS_PER_PAGE);
-    return res.status(200).json({
-      status: "succes",
-      message: "Sevuelvo el listado de seguidores que me siguen",
-      follows,
-      total,
-      pages,
-      user_following: followUserIds.followingList,
-      user_follow_me: followUserIds.followersList
+  Follow.find({ followed: userId })
+    .populate("user", "-password -role -__v -email")
+    .paginate(page, ITEMS_PER_PAGE, async (error, follows, total) => {
+      let followUserIds = await followService.followUserIds(req.user.id);
+      let pages = Math.ceil(total / ITEMS_PER_PAGE);
+      if (error || !publications) {
+        return res.status(400).json({
+          status: "error",
+          message: "No se ha podido obtener Follows",
+          error: error,
+        });
+      }
+      return res.status(200).json({
+        status: "succes",
+        message: "Sevuelvo el listado de seguidores que me siguen",
+        follows,
+        total,
+        pages,
+        user_following: followUserIds.followingList,
+        user_follow_me: followUserIds.followersList,
+      });
     });
-  })
-
-  
 };
 
 // Exportar acciones

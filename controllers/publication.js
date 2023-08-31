@@ -2,6 +2,7 @@ const Publication = require("../models/publication.js");
 const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
+const followService = require("../services/followService.js");
 
 // Acciones de prueba
 const pruebaPublication = (req, res) => {
@@ -105,6 +106,48 @@ const user = async (req, res) => {
 };
 
 // Listar  todas las publicaciones (FEED)
+const feed = async (req, res) => {
+  try {
+    //Obtener el id del usuario que esta actualmente logeado
+    const userId = req.user.id;
+    //Obtener la pagina actual
+    let page = req.params.page ? parseInt(req.params.page) : 1;
+    //Establecer numero de elementos por pagina
+    let itemPerPage = 5;
+    //Obtener array de id de usuarios que yo sigo como usuario logueado
+    const myFollowsList = await followService.followUserIds(userId);
+    const followings = myFollowsList.followingList;
+
+    //Find a publicaciones in, ordenar, popular, paginar
+    Publication.find({ user: followings })
+      .populate("user", "-password -role -__v -email")
+      .sort("-created_at")
+      .paginate(page, itemPerPage, (error, publications, total) => {
+        if (error || !publications) {
+          return res.status(400).json({
+            status: "error",
+            message: "No se ha podido obtener Feeds",
+            error: error,
+          });
+        }
+        return res.status(200).json({
+          status: "success",
+          message: "Feeds Publicaciones",
+          page,
+          followings,
+          publications,
+          total,
+          pages: Math.ceil(total / itemPerPage),
+        });
+      });
+  } catch (error) {
+    return res.status(400).json({
+      status: "error",
+      message: "No se ha podido obtener Feeds",
+      error: error,
+    });
+  }
+};
 
 // Eliminar publicaciones
 const remove = async (req, res) => {
@@ -161,7 +204,7 @@ const uploader = async (req, res) => {
     }
 
     let publicationUpdated = await Publication.findOneAndUpdate(
-      {user: req.user.id, _id: publicactionId},
+      { user: req.user.id, _id: publicactionId },
       { file: req.file.filename },
       { new: true }
     );
@@ -199,7 +242,6 @@ const media = async (req, res) => {
   });
 };
 
-
 // Exportar acciones
 module.exports = {
   pruebaPublication,
@@ -208,5 +250,6 @@ module.exports = {
   remove,
   user,
   uploader,
-  media
+  media,
+  feed,
 };
