@@ -1,9 +1,14 @@
 const User = require("../models/user.js");
+const Follow = require("../models/follow.js");
+const Publication = require("../models/publication.js");
 const bcrypt = require("bcrypt");
 const { createToken } = require("../services/jwt.js");
 const fs = require("fs");
 const path = require("path");
 const followService = require("../services/followService.js");
+const mongoose = require('mongoose');
+
+
 
 // Acciones de prueba
 const pruebaUser = (req, res) => {
@@ -122,11 +127,16 @@ const login = async (req, res) => {
 const profile = async (req, res) => {
   try {
     let id = req.params.id;
-    let profile = await User.findById(id).select({ password: 0, role: 0 });
-
+    //Chequear  si  el id es valido
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        status:"error",
+        message:"Id ingresado no valido"
+      })
+    }
+    let profile = await User.findById(id).select({ password: 0, role: 0 , __v:0});
     //info de seguimiento
     const followInfo = await followService.followThisUser(req.user.id, id)
-
     return res.status(200).json({
       status: "success",
       user: profile,
@@ -135,7 +145,6 @@ const profile = async (req, res) => {
       //////////////////////////////
     });
   } catch (error) {
-    console.log(error);
     return res.status(400).json({
       status: "error",
       message: "Error o Usuario Inexsistente",
@@ -223,13 +232,13 @@ const update = async (req, res) => {
     if (userToUpdate.password) {
       let pwd = await bcrypt.hash(userToUpdate.password, 10);
       userToUpdate.password = pwd;
-    }
+    } 
     // Actualizar Base
     let userUpdate = await User.findByIdAndUpdate(
       userIdentity.id,
       userToUpdate,
       { new: true }
-    );
+    ).select("-password -role -__v")
 
     res.status(200).json({
       status: "succes",
@@ -304,6 +313,41 @@ const avatar = async (req, res) => {
   });
 };
 
+const counters = async (req,res) => {
+      // Contar cantidad de follows, followings y publicationes
+  try {
+    let userId = req.user.id;
+    // ver si llega el id por parametro
+    if (req.params.id) userId = req.params.id;
+      //Chequear  si  el id es valido
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          status:"error",
+          message:"Id ingresado no valido"
+        })
+      }
+
+
+    let quantityFollowers = await Follow.count({"user": userId});
+    let quantityFollowings = await Follow.count({"followed": userId});
+    let quantityPublicactions = await Publication.count({user:userId});
+
+    return res.status(200).json({
+      status:"succes",
+      message:"Quantitys",
+      userId,
+      quantityFollowers,
+      quantityFollowings,
+      quantityPublicactions
+    })
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      error
+    });
+  }
+}
+
 // Exportar acciones
 module.exports = {
   pruebaUser,
@@ -314,4 +358,5 @@ module.exports = {
   update,
   uploader,
   avatar,
+  counters
 };

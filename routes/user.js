@@ -24,6 +24,7 @@ router.get('/profile/:id', middlewar.auth, userController.profile);
 router.get('/list/:page?', middlewar.auth, userController.list);
 router.put('/update', middlewar.auth, userController.update);
 router.post('/upload', [middlewar.auth, uploads.single('file0')],userController.uploader);
-router.get('/avatar/:file', middlewar.auth ,userController.avatar);
+router.get('/avatar/:file' ,userController.avatar);
+router.get('/counters/:id?', middlewar.auth, userController.counters);
 
 module.exports = router;
