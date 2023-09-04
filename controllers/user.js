@@ -6,9 +6,8 @@ const { createToken } = require("../services/jwt.js");
 const fs = require("fs");
 const path = require("path");
 const followService = require("../services/followService.js");
-const mongoose = require('mongoose');
-
-
+const mongoose = require("mongoose");
+const validate = require("../helpers/validate.js");
 
 // Acciones de prueba
 const pruebaUser = (req, res) => {
@@ -21,56 +20,64 @@ const pruebaUser = (req, res) => {
 
 //Registro de usuarios
 const register = (req, res) => {
-  let params = req.body;
-  if (!params.name || !params.email || !params.nick || !params.password) {
+  try {
+    let params = req.body;
+    if (!params.name || !params.email || !params.nick || !params.password) {
+      return res.status(400).json({
+        status: "error",
+        message: "Error en registro- faltan datos",
+      });
+    }
+    // Validaciones
+    validate(params);
+    const dataUser = new User(params);
+    User.find({
+      $or: [
+        { email: dataUser.email.toLocaleLowerCase() },
+        { nick: dataUser.nick.toLocaleLowerCase() },
+      ],
+    }).exec((error, users) => {
+      if (error) {
+        return res.status(400).json({
+          status: "error",
+          message: "Error en la consulta",
+        });
+      }
+      if (users && users.length >= 1) {
+        return res.status(400).json({
+          status: "error",
+          message: "usuario ya registrado",
+        });
+      }
+      //Codificar password
+      bcrypt.hash(dataUser.password, 10, (error, pwd) => {
+        dataUser.password = pwd;
+
+        //Grabar usuario en base de datos
+        dataUser.save((error, userStored) => {
+          if (error || !userStored) {
+            return res.status(500).json({
+              status: "error",
+              message: "Error al guardar",
+            });
+          }
+          if (userStored) {
+            return res.status(200).json({
+              status: "success",
+              message: "Usuario registrado correctamente",
+              userStored,
+            });
+          }
+        });
+      });
+    });
+  } catch (error) {
+    console.log(error);
     return res.status(400).json({
       status: "error",
-      message: "Error en registro- faltan datos",
+      message: error.message,
     });
   }
-
-  const dataUser = new User(params);
-
-  User.find({
-    $or: [
-      { email: dataUser.email.toLocaleLowerCase() },
-      { nick: dataUser.nick.toLocaleLowerCase() },
-    ],
-  }).exec((error, users) => {
-    if (error) {
-      return res.status(400).json({
-        status: "error",
-        message: "Error en la consulta",
-      });
-    }
-    if (users && users.length >= 1) {
-      return res.status(400).json({
-        status: "error",
-        message: "usuario ya registrado",
-      });
-    }
-    //Codificar password
-    bcrypt.hash(dataUser.password, 10, (error, pwd) => {
-      dataUser.password = pwd;
-
-      //Grabar usuario en base de datos
-      dataUser.save((error, userStored) => {
-        if (error || !userStored) {
-          return res.status(500).json({
-            status: "error",
-            message: "Error al guardar",
-          });
-        }
-        if (userStored) {
-          return res.status(200).json({
-            status: "success",
-            message: "Usuario registrado correctamente",
-            userStored,
-          });
-        }
-      });
-    });
-  });
 };
 
 // Login de usuario
@@ -130,18 +137,22 @@ const profile = async (req, res) => {
     //Chequear  si  el id es valido
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
-        status:"error",
-        message:"Id ingresado no valido"
-      })
+        status: "error",
+        message: "Id ingresado no valido",
+      });
     }
-    let profile = await User.findById(id).select({ password: 0, role: 0 , __v:0});
+    let profile = await User.findById(id).select({
+      password: 0,
+      role: 0,
+      __v: 0,
+    });
     //info de seguimiento
-    const followInfo = await followService.followThisUser(req.user.id, id)
+    const followInfo = await followService.followThisUser(req.user.id, id);
     return res.status(200).json({
       status: "success",
       user: profile,
       followwing: followInfo.following,
-      follower: followInfo.follower
+      follower: followInfo.follower,
       //////////////////////////////
     });
   } catch (error) {
@@ -163,7 +174,7 @@ const list = async (req, res) => {
   User.find()
     .select("-password -email -__v -rol")
     .sort("_id")
-    .paginate(page, ItemPerPage,async (error, users, total) => {
+    .paginate(page, ItemPerPage, async (error, users, total) => {
       if (error || !users) {
         return res.status(400).json({
           status: "error",
@@ -172,9 +183,9 @@ const list = async (req, res) => {
       }
 
       //sacar un array de ids de los usuarios que me siguen y los que sigo
-      let followUsersIds = await followService.followUserIds(req.user.id)
+      let followUsersIds = await followService.followUserIds(req.user.id);
 
-      let pages = Math.ceil(total/ItemPerPage);
+      let pages = Math.ceil(total / ItemPerPage);
 
       return res.status(200).json({
         status: "success",
@@ -185,7 +196,7 @@ const list = async (req, res) => {
         total,
         pages,
         user_following: followUsersIds.followingList,
-        user_follow_me: followUsersIds.followersList
+        user_follow_me: followUsersIds.followersList,
       });
     });
 };
@@ -232,13 +243,13 @@ const update = async (req, res) => {
     if (userToUpdate.password) {
       let pwd = await bcrypt.hash(userToUpdate.password, 10);
       userToUpdate.password = pwd;
-    } 
+    }
     // Actualizar Base
     let userUpdate = await User.findByIdAndUpdate(
       userIdentity.id,
       userToUpdate,
       { new: true }
-    ).select("-password -role -__v")
+    ).select("-password -role -__v");
 
     res.status(200).json({
       status: "succes",
@@ -313,40 +324,39 @@ const avatar = async (req, res) => {
   });
 };
 
-const counters = async (req,res) => {
-      // Contar cantidad de follows, followings y publicationes
+const counters = async (req, res) => {
+  // Contar cantidad de follows, followings y publicationes
   try {
     let userId = req.user.id;
     // ver si llega el id por parametro
     if (req.params.id) userId = req.params.id;
-      //Chequear  si  el id es valido
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({
-          status:"error",
-          message:"Id ingresado no valido"
-        })
-      }
+    //Chequear  si  el id es valido
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Id ingresado no valido",
+      });
+    }
 
-
-    let quantityFollowers = await Follow.count({"user": userId});
-    let quantityFollowings = await Follow.count({"followed": userId});
-    let quantityPublicactions = await Publication.count({user:userId});
+    let quantityFollowers = await Follow.count({ user: userId });
+    let quantityFollowings = await Follow.count({ followed: userId });
+    let quantityPublicactions = await Publication.count({ user: userId });
 
     return res.status(200).json({
-      status:"succes",
-      message:"Quantitys",
+      status: "succes",
+      message: "Quantitys",
       userId,
       quantityFollowers,
       quantityFollowings,
-      quantityPublicactions
-    })
+      quantityPublicactions,
+    });
   } catch (error) {
     res.status(500).json({
       status: "error",
-      error
+      error,
     });
   }
-}
+};
 
 // Exportar acciones
 module.exports = {
@@ -358,5 +368,5 @@ module.exports = {
   update,
   uploader,
   avatar,
-  counters
+  counters,
 };
